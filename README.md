@@ -9,38 +9,63 @@ The aim of tootdeck is to make an easy to use web client for mastodon that's eas
 
 Currently a work in progress, these are still things I want to get done for the 1.0:
 
-## Todo
+## Priority
+
+Toots
+- [ ] Add Attachments
+- [ ] Delete Toots
+
+Toot Chains
+- [ ] Fix border on chains
+- [ ] Autoscroll to the actual selected toot if lots of ancestors
+
+Profile Page
+- [ ] Followers / Following / Posts Counts
+- [ ] "More toots pls" for profile feeds
+- [ ] don't show follow on urself u eejit
+- [ ] Show instance on external profiles
+- [ ] Edit Profile
+- [ ] Handle long ass profiles like /mastodon.social/profile/107109320946875676 (@vv)
+- [ ] "Media" section?
+
+Search Page
+- [ ] Search results + filters
+
+Misc
+- [ ] Tutorial blocks
+- [ ] Notifications page
+- [ ] Github links
+- [ ] Announcement post links / mentions etc
+ 
+Communities
+- [ ] set "default" landing community + save
+
+## Future
 
 Toots
 - [ ] View Polls
 - [ ] Vote Polls
 - [ ] Add Polls
-- [ ] Add Attachments
-- [ ] Delete Toots
 - [ ] Schedule + Scheduled Toots
+- [ ] Preview profile on avatar hover
+
+Feeds
+- [ ] Stream feeds for new toots
 
 Profile Page
-- [ ] Followers / Following / Posts Counts
 - [ ] Pinned Toots? (/api/v1/accounts/:id/pin)
-- [ ] "More toots pls" for profile feeds
-- [ ] don't show follow on urself u eejit
-
-Search Page
-- [ ] search results + filters
-- [ ] Handle links/mentions from other instances
 
 Misc
 - [ ] Shorten fav/boost/comment to k/m if over 999
-- [ ] Notifications page
-- [ ] Github links
-
-Communities
-- [ ] Notifications counter per community
 - [ ] reorder communities on LHS
-- [ ] set "default" landing community + save
+- [ ] Notification streaming + popups
+- [ ] Aria shit
 
 Federation
 - [ ] Boost/comment/follow using different accounts?
+- [ ] Handle mentions from other instances
+- [ ] Fancy thumbnail stuff for adding community (use "canon" list)
+
 
 ## Finished 
 

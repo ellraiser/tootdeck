@@ -1,5 +1,7 @@
 <html>
 
+  <!-- Come on in, the waters fine! (kinda) -->
+
   <head>
     <link href="css/app.css" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
@@ -18,16 +20,29 @@
         <tr>
           <td>
             <div class="td-popup--splash" v-on:click="popup.add = false"></div>
-            <div class="td-popup" v-on:click.stop="">
-              <h1>Add Community</h1>
-              <p>
-                Here you can add a community!
-                <br/><br/>
-                Don't know where to start? You can find a list of communities <a href="https://joinmastodon.org/communities" target="_blank">here</a>.
+            <div class="td-popup" style="padding: 0px" v-on:click.stop="">
+              <p style="padding: 16px 16px 0 16px">
+                Here's some common communities that might interest you!
               </p>
               <br/>
-              <input style="margin-right: 10px" v-model="$root.instance" class="td-input"/>
-              <button class="td-button blue" v-on:click="addApp()">Add</button>
+              <div class="td-communities">
+                <div v-for="c in $root.communities" class="td-communities__item">
+                  <div v-bind:style="{'background-image': 'url(' + c.thumbnail + ')' }"></div>
+                  <h2>{{ c.uri }}</h2>
+                  <p>{{ c._short }}</p>
+                  <button class="td-button" v-on:click="$root.addApp(c.uri)">
+                    <i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+              <p style="padding: 16px">
+                Or if you'd like you can add a different instance below - if you're not sure where to start, you can find a list of popular communities <a href="https://joinmastodon.org/communities" target="_blank">here</a>.
+                <br/><br/>
+                <input style="margin-right: 10px; width: calc(100% - 42px);" class="td-input" v-model="$root.instance" placeholder="Enter a Mastodon URL..."/>
+                <button class="td-button--icon" v-on:click="$root.addApp()">
+                  <i class="fa-solid fa-plus"></i>
+                </button>
+              </p>
             </div>
           </td>
         </tr>
@@ -53,32 +68,47 @@
 
       <!-- Community List  -->
       <div v-if="state != 'home'" class="td-sidebar">
-        <button class="td-button blue" v-on:click="popup.add = true">Add Community</button>
-        <div class="td-sidebar--header">Communities</div>
+        <div class="td-sidebar--buttons">
+          <button class="td-button blue" v-on:click="popup.add = true">Add Community</button>
+        </div>
+        <div class="td-sidebar--header">
+          My Communities
+          <span v-on:click="edit.communities = !edit.communities"><i class="fa-solid fa-pencil"></i></span>
+        </div>
         <ul class="td-sidebar--menu">
           <li v-for="(a, key) in authenticatedApps" v-bind:data-selected="a.name == community" v-on:click="loadFeed(a, key)">
             <div>
               {{ a.name }}
-              <button v-on:click="removeApp(key)"><i class="fa-solid fa-trash"></i></button>
+              <span v-if="!edit.communities && notifications[key]" class="td-notifications">
+                <i class="fa-solid fa-bell"></i>&nbsp;{{ notifications[key].length }}
+              </span>
+              <button class="td-button--icon red" v-if="edit.communities" v-on:click="removeApp(key)">
+                <i class="fa-solid fa-trash"></i>
+              </button>
             </div>
-            <ul v-if="a.name == community">
+            <ul v-if="a.name == community && !edit.communities">
               <li v-bind:data-selected="feed_type == 'home'" v-on:click="feed_type = 'home'; setFeed()">
-                <i class="fa-solid fa-user-group"></i>&nbsp;following
+                <i class="fa-solid fa-user-group"></i>&nbsp;Following
               </li>
               <li v-bind:data-selected="feed_type == 'public'" v-on:click="feed_type = 'public'; setFeed()">
-                <i class="fa-solid fa-house"></i>&nbsp;public
+                <i class="fa-solid fa-house"></i>&nbsp;Public
               </li>
               <li v-bind:data-selected="feed_type == 'global'" v-on:click="feed_type = 'global'; $setFeed()">
-                <i class="fa-solid fa-globe"></i>&nbsp;federated
+                <i class="fa-solid fa-globe"></i>&nbsp;Federated
               </li>
             </ul>
           </li>
         </ul>
-        <div class="td-sidebar--header">Public</div>
+        <div class="td-sidebar--header">
+          Public Communities
+          <span v-on:click="edit.public = !edit.public"><i class="fa-solid fa-pencil"></i></span>
+        </div>
         <ul class="td-sidebar--menu">
           <li v-for="(a, key) in unAuthenticatedApps" v-bind:data-selected="a.name == community" v-on:click="loadFeed(a, key)">
             {{ a.name }}
-            <button v-on:click="removeApp(key)"><i class="fa-solid fa-trash"></i></button>
+            <button class="td-button--icon red" v-if="edit.public" v-on:click="removeApp(key)">
+              <i class="fa-solid fa-trash"></i>
+            </button>
           </li>
         </ul>
       </div>
@@ -90,8 +120,8 @@
             <img src="/logo.png" title="TOOTDECK"/>
           </div>
           <img v-if="app.user_token != null" v-on:click="viewProfile(me)" class="td-header--icon" v-bind:src="me.avatar"/>
-          <button v-bind:class="{ 'blue' : notifications.length > 0 }" v-if="app.user_token != null" class="td-button--icon">
-            <i class="fa-solid fa-bell"></i>
+          <button v-if="notifications[url]" v-bind:class="{ 'blue' : notifications[url].length > 0 }" v-if="app.user_token != null" class="td-button">
+            <i class="fa-solid fa-bell"></i>&nbsp;{{ notifications[url].length }}
           </button>
           <input v-if="app.user_token != null" class="td-input td-header--search" placeholder="Search..."/>
         </div>
@@ -105,49 +135,6 @@
         <router-view></router-view>
       </div>
 
-      <!-- Info -->
-      <table class="td-fw" v-if="popup.info">
-        <tr>
-          <td>
-            <div class="td-popup--splash" v-on:click="popup.info = false"></div>
-            <div class="td-popup" v-on:click.stop="">
-              <h1>TODO</h1>
-              <p>I'll be putting this project up on Github soon if you wanna contrib!</p>
-<pre>
-Toots
-[-] Content warnings + spoilers
-[-] Polls (see/vote/post)
-[-] Attachments
-[-] Delete toot/reply
-[-] Alt text for images (media.description)
-
-Profile
-[-] "My" Profile pages
-[-] Followers / Following / Posts
-[-] Pinned Toots? (/api/v1/accounts/:id/pin)
-[-] "More toots pls" for profiles
-[-] don't show follow on urself u eejit
-
-General
-[-] shorten fav/boost/comment to k/m if over 999
-[-] Show "My" notifications somewhere
-
-Search
-[-] search results + filters
-
-Communities
-[-] Notifications per community
-[-] reorder communities on LHS
-[-] set "default" landing community
-
-Federation
-[-] Boost/comment/follow using different accounts
-</pre>
-            </div>
-          </td>
-        </tr>
-      </table>
-
     </div>
     
     <!-- Home Page -->
@@ -156,15 +143,31 @@ Federation
       <table class="td-fw">
         <tr>
           <td>
-            <div class="td-popup">
-              <p>
-                Welcome to TootDeck, an open source web client for Mastoden making it easy for both new and seasoned tooters alike to managed all their favourite communities in one place.
+            <div class="td-popup" style="padding: 0px;">
+              <p style="padding: 16px 16px 0 16px">
+                Welcome to TootDeck, an <a href="" target="_blank">open source</a> web client for <a href="https://joinmastodon.org/" target="_blank">Mastodon</a> - a community owned ad-free social network.
                 <br/><br/>
-                To get started, add a community - if you're not sure where to start, you can find a list of popular communities <a href="https://joinmastodon.org/communities" target="_blank">here</a>.
+                To get started, pick a community below (you can change this later!)
               </p>
               <br/>
-              <input style="margin-right: 10px" class="td-input" v-model="$root.instance" placeholder="Enter a Mastodon URL..."/>
-              <button class="td-button blue" v-on:click="$root.addApp()">Let's Go!</button>
+              <div class="td-communities">
+                <div v-for="c in $root.communities" class="td-communities__item">
+                  <div v-bind:style="{'background-image': 'url(' + c.thumbnail + ')' }"></div>
+                  <h2>{{ c.uri }}</h2>
+                  <p>{{ c._short }}</p>
+                  <button class="td-button" v-on:click="$root.addApp(c.uri)">
+                    <i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+              <p style="padding: 16px">
+                Or if you'd like you can add a different instance below - if you're not sure where to start, you can find a list of popular communities <a href="https://joinmastodon.org/communities" target="_blank">here</a>.
+                <br/><br/>
+                <input style="margin-right: 10px; width: calc(100% - 42px);" class="td-input" v-model="$root.instance" placeholder="Enter a Mastodon community, e.g. 'mastodon.art'"/>
+                <button class="td-button--icon" v-on:click="$root.addApp()">
+                  <i class="fa-solid fa-plus"></i>
+                </button>
+              </p>
             </div>
           </td>
         </tr>
@@ -197,6 +200,12 @@ Federation
         <div v-if="$root.profile_toots.length > 0" class="td-feed--post" v-for="f in $root.profile_toots">
           <td-card :toot="f" comment="false"></td-card>
         </div>
+        <div class="td-feed--more" v-if="$root.profile_toots.length > 0">
+          <button class="td-button blue" v-on:click="$root.loadMoreProfile()">
+            <span v-if="$root.loading.more == true">Loading more toots...</span>
+            <span v-if="$root.loading.more != true">More toots pls</span>
+          </button>
+        </div>
       </div>
     </template>
     
@@ -215,11 +224,14 @@ Federation
           <td>
             <div class="td-popup--splash" v-on:click="$root.popup.authorize = false"></div>
             <div class="td-popup" v-on:click.stop="">
-              <h1>Authorizing</h1>
-              <p>Please authenticate TootDeck in the window that opened, then enter the Authentication Code it gives you below.</p>
-              <br/>
-              <input style="margin-right: 10px" v-model="$root.code" class="td-input"/>
-              <button class="td-button blue"t v-on:click="$root.authUser()">Authenticate</button>
+              <p>
+                Please authenticate TootDeck in the window that just opened!
+                <br/><br/>
+                Once done you'll be given an Authentication Code. Enter that below and you'll be good to go!
+                <br/><br/>
+                <input style="margin-right: 10px" v-model="$root.code" class="td-input"/>
+                <button class="td-button blue"t v-on:click="$root.authUser()">Authenticate</button>
+              </p>
             </div>
           </td>
         </tr>
@@ -228,16 +240,16 @@ Federation
       <div class="td-feed">
 
         <div class="td-feed--options" v-if="!$root.errors.not_public">
-          <div class="td-tooting">
+          <div class="td-tooting" v-bind:class="{ 'full' : $root.app.user_token != null }">
             <div v-if="$root.app.user_token != null">
-              <textarea style="margin-bottom: 10px; background: white" v-model="$root.status" class="td-textarea" placeholder="Toot toot!"></textarea>
+              <textarea style="margin-bottom: 10px; background: white" v-model="$root.status" class="td-textarea" placeholder="If an elephant toots in a forest and no one is around to hear it, does it make a sound?"></textarea>
               <button class="td-button blue" v-on:click="$root.sendToot()">Toot!</button>
             </div>
             <div v-if="$root.app.user_token == null">
               <p style="margin-bottom: 10px;">
                 {{ $root.errors.not_public == true ? 'Feed not public.' : 'Viewing public feed.'  }}
                 <br/><br/>
-                {{ $root.errors.not_public == true ? 'Login to view feed!' : 'Login to interact with this community.'  }}
+                {{ $root.errors.not_public == true ? 'Login to view feed!' : 'Login to interact with this community!'  }}
               </p>
               <button style="float: right" class="td-button blue" v-on:click="$root.loginUser()">Login</button>
             </div>
@@ -245,11 +257,11 @@ Federation
           <div class="td-trends" v-if="$root.trends.length > 0">
             <h2>Trending</h2>
             <div v-for="t in $root.trends">
-              <a v-on:click.stop="$root.searchTag(t.name)">#{{ t.name }}</a> - <span>{{ t.history[0].uses }} toots</span>
+              <a v-on:click.stop="$root.searchTag(t.name)">#{{ t.name }}</a><span>{{ t.history[0].uses }}</span>
             </div>
           </div>
           <div class="td-announcements" v-if="$root.announcements.length > 0">
-            <h2>Announcements</h2>
+            <h2>Community Notices</h2>
             <div v-for="a in $root.announcements" v-html="a.content"></div>
           </div>
         </div>
@@ -261,7 +273,7 @@ Federation
         </div>
 
         <div class="td-loading" v-if="$root.loading.feed == true && !$root.errors.not_public">
-          <p>Loading feed...</p>
+          <p>Loading toots...</p>
         </div>
         
         <div class="td-loading" v-if="$root.toots.length == 0 && $root.loading.feed == false && $root.feed_type == 'home' && !$root.errors.not_public">
@@ -270,8 +282,11 @@ Federation
         <div v-if="$root.toots.length > 0" class="td-feed--post" v-for="f in $root.toots">
           <td-card :toot="f" comment="false"></td-card>
         </div>
-        <div v-if="$root.toots.length > 0">
-          <button class="td-button blue" v-on:click="$root.loadMore()">More toots pls</button>
+        <div class="td-feed--more" v-if="$root.toots.length > 0">
+          <button class="td-button blue" v-on:click="$root.loadMore()">
+            <span v-if="$root.loading.more == true">Loading more toots...</span>
+            <span v-if="$root.loading.more != true">More toots pls</span>
+          </button>
         </div>
 
       </div>
@@ -295,8 +310,13 @@ Federation
             <span v-on:click.stop="$root.viewProfile(toot.account)">({{ toot.account.acct }})</span>
           </h3>
           <div v-if="toot.sensitive == true && toot._view != true" class="td-feed--post_body">
-            {{ toot.spoiler_text }}<br/>
+            {{ toot.spoiler_text == '' ? 'Spoilers' : toot.spoiler_text }}<br/>
             <a v-on:click.stop="toot._view = true">Show Toot</a>
+          </div>
+          <div class="td-feed--post_del" v-if="toot.account.id == $root.me.id">
+            <button class="td-button--icon red" v-on:click.stop="$root.deleteToot(toot)">
+              <i class="fa-solid fa-trash"></i>
+            </button>
           </div>
           <div v-if="toot.sensitive == false || toot._view == true" class="td-feed--post_body" v-html="$root.parseBody(toot)"></div>
           <div v-if="toot.media_attachments.length > 0" class="td-feed--post_attachments" v-bind:data-multiple="toot.media_attachments.length > 0">
@@ -306,7 +326,7 @@ Federation
                   <tr><td>Show Sensitive Content</td></tr>
                 </table>
               </div>
-              <img v-if="m.type == 'image'" v-bind:data-sensitive="toot.sensitive && m._view != true" v-bind:src="m.url"/>
+              <img v-bind:alt="m.description" v-if="m.type == 'image'" v-bind:data-sensitive="toot.sensitive && m._view != true" v-bind:src="m.url"/>
               <video data-type="audio" v-if="m.type == 'audio'" controls>
                 <source v-bind:src="m.url">
               </video>

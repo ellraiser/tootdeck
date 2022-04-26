@@ -33,6 +33,11 @@ var $Mastodon = (function() {
 
   return {
 
+    // get weekly activity
+    getActivity: function(base_url, callback) {
+      _request('GET', base_url + '/api/v1/instance/activity', {}, {}, null, callback);
+    },
+
     // open authorise window for a given instance
     authoriseUser: function(base_url, client_id) {
       var url = base_url + '/oauth/authorize?' +
@@ -78,7 +83,19 @@ var $Mastodon = (function() {
 
     // load timeline of a given account
     getProfileTimeline: function(base_url, profile_id, user_token, callback) {
-      _request('GET', base_url + '/api/v1/accounts/' + profile_id + '/statuses', null, {
+      _request('GET', base_url + '/api/v1/accounts/' + profile_id + '/statuses', {
+        limit: 50
+      }, {
+        Authorization: 'Bearer ' + user_token
+      }, null, callback);
+    },
+
+    // load more timeline of a given account
+    getMoreProfileTimeline: function(base_url, profile_id, user_token, last_toot, callback) {
+      _request('GET', base_url + '/api/v1/accounts/' + profile_id + '/statuses', {
+        max_id: last_toot,
+        limit: 50
+      }, {
         Authorization: 'Bearer ' + user_token
       }, null, callback);
     },
@@ -210,6 +227,11 @@ var $Mastodon = (function() {
       _request('GET', base_url + '/api/v1/announcements', {}, {
         Authorization: 'Bearer ' + user_token
       }, null, callback);
+    },
+
+    // get instance info
+    getInstanceInfo: function(base_url, callback) {
+      _request('GET', base_url + '/api/v1/instance', {}, {}, null, callback);
     }
 
   }
