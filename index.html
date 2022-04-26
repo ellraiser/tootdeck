@@ -6,7 +6,7 @@
     <link href="css/app.css" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" />
-    <script src="libs/vue3.js"></script>
+    <script src="libs/vue3.dev.js"></script>
     <script src="libs/vue-router.js"></script>
     <title>TOOTDECK</title>
   </head>
@@ -116,11 +116,11 @@
       <!-- Top bar -->
       <div v-if="state != 'home'" class="td-header">
         <div class="td-wrap">
-          <div v-on:click="popup.info = true" class="td-header--logo">
-            <img src="/logo.png" title="TOOTDECK"/>
+          <div class="td-header--logo">
+            <a href="https://github.com/ellraiser/tootdeck" target="_blank"><img src="/logo.png" title="TOOTDECK"/></a>
           </div>
           <img v-if="app.user_token != null" v-on:click="viewProfile(me)" class="td-header--icon" v-bind:src="me.avatar"/>
-          <button v-if="notifications[url]" v-bind:class="{ 'blue' : notifications[url].length > 0 }" v-if="app.user_token != null" class="td-button">
+          <button v-if="notifications[url]" v-bind:class="{ 'blue' : notifications[url].length > 0 }" v-if="app.user_token != null" class="td-button" v-on:click="viewNotifications()">
             <i class="fa-solid fa-bell"></i>&nbsp;{{ notifications[url].length }}
           </button>
           <input v-if="app.user_token != null" class="td-input td-header--search" placeholder="Search..."/>
@@ -128,7 +128,7 @@
       </div>
 
       <!-- Content -->
-      <div class="td-content">
+      <div id="scroll" class="td-content">
         <!--<span class="td-content--back" v-if="last_page != null" v-on:click="goBack()">
           Go Back
         </span>-->
@@ -197,14 +197,28 @@
         <div class="td-feed--options">
           <td-profile :profile="$root.profile"></td-profile>
         </div>
-        <div v-if="$root.profile_toots.length > 0" class="td-feed--post" v-for="f in $root.profile_toots">
+        <div v-if="$root.profile_toots && $root.profile_toots.length > 0" class="td-feed--post" v-for="f in $root.profile_toots">
           <td-card :toot="f" comment="false"></td-card>
         </div>
-        <div class="td-feed--more" v-if="$root.profile_toots.length > 0">
+        <div class="td-feed--more" v-if="$root.profile_toots && $root.profile_toots.length > 0">
           <button class="td-button blue" v-on:click="$root.loadMoreProfile()">
             <span v-if="$root.loading.more == true">Loading more toots...</span>
             <span v-if="$root.loading.more != true">More toots pls</span>
           </button>
+        </div>
+      </div>
+    </template>
+
+    <template id="notification-page">
+      <div class="td-notifs" v-if="$root.notifications[$root.url]">
+        <div class="td-notifs--item" v-for="n in $root.notifications[$root.url]">
+          <img v-bind:src="n.account.avatar"/>
+          <a v-on:click="$root.viewProfile(n.account)">@{{ n.account.acct }}</a>
+          <span v-if="n.type == 'reblog'"> boosted your toot!</span>
+          <span v-if="n.type == 'favourite'"> liked your toot!</span>
+          <span v-if="n.type == 'mention'"> mentioned you in a toot!</span>
+          <span v-if="n.type == 'follow'"> followed you!</span>
+          <td-card v-if="n.status" :toot="n.status" preview="true"></td-card>
         </div>
       </div>
     </template>
@@ -279,6 +293,7 @@
         <div class="td-loading" v-if="$root.toots.length == 0 && $root.loading.feed == false && $root.feed_type == 'home' && !$root.errors.not_public">
           You're not following anyone!
         </div>
+
         <div v-if="$root.toots.length > 0" class="td-feed--post" v-for="f in $root.toots">
           <td-card :toot="f" comment="false"></td-card>
         </div>
@@ -296,10 +311,10 @@
     <!-- Toot Card Template -->
     <template id="td-card">
       <div>
-        <div class="td-feed--comments" v-if="toot._comments_before && toot._comments_before.length > 0" >
+        <div class="td-feed--comments" v-if="toot._comments_before != undefined && toot._comments_before.length > 0" >
           <td-card :toot="c" comment="true" v-for="c in toot._comments_before"></td-card>
         </div>
-        <div v-if="!toot.reblog" class="td-feed--post_card" v-bind:data-full="selected" v-on:click="$root.viewToot(toot)">
+        <div v-bind:id="'card-' + toot.id" v-if="!toot.reblog" class="td-feed--post_card" v-bind:data-full="selected" v-bind:data-preview="preview" v-on:click="$root.viewToot(toot)">
           <div v-if="retoot" class="td-feed--post_retoot">
             <span v-html="$root.parseEmoji(retoot.display_name, retoot.emojis)"></span>
             &nbsp;<i class="fa-solid fa-retweet"></i>&nbsp;
@@ -309,6 +324,7 @@
             <a v-on:click.stop="$root.viewProfile(toot.account)" v-html="$root.parseEmoji(toot.account.display_name, toot.account.emojis)"></a>
             <span v-on:click.stop="$root.viewProfile(toot.account)">({{ toot.account.acct }})</span>
           </h3>
+          <div v-if="preview" class="td-feed--post_preview" v-html="$root.parseBody(toot)"></div>
           <div v-if="toot.sensitive == true && toot._view != true" class="td-feed--post_body">
             {{ toot.spoiler_text == '' ? 'Spoilers' : toot.spoiler_text }}<br/>
             <a v-on:click.stop="toot._view = true">Show Toot</a>
@@ -337,6 +353,9 @@
                 <p>ALT</p>
                 <span>{{ m.description}}</span>
               </div>
+              <div v-if="m.description == null" class="td-content--alt">
+                <p>NO ALT :(</p>
+              </div>
             </span>
           </div>
           <div v-if="toot.card" class="td-feed--post_embed" v-html="toot.card.html"></div>
@@ -353,9 +372,15 @@
             </span>
           </div>
           <div class="td-feed--post_actions">
-            <button v-bind:disabled="$root.app.user_token == null" v-bind:data-selected-c="toot._comment" v-on:click.stop="$root.setComment(toot)"><i class="fa-solid fa-comment"></i>&nbsp;{{ toot.replies_count }}</button>
-            <button v-bind:disabled="$root.app.user_token == null" v-bind:data-selected-h="toot.reblogged" v-on:click.stop="$root.boostToot(toot)"><i class="fa-solid fa-retweet"></i>&nbsp;{{ toot.reblogs_count }}</button>
-            <button v-bind:disabled="$root.app.user_token == null" v-bind:data-selected-h="toot.favourited" v-on:click.stop="$root.likeToot(toot)"><i class="fa-solid fa-heart"></i>&nbsp;{{ toot.favourites_count }}</button>
+            <button v-bind:disabled="$root.app.user_token == null" v-bind:data-selected-c="toot._comment" v-on:click.stop="$root.setComment(toot)">
+              <i class="fa-solid fa-comment"></i>&nbsp;{{ $root.shortenNumber(toot.replies_count) }}
+            </button>
+            <button v-bind:disabled="$root.app.user_token == null" v-bind:data-selected-h="toot.reblogged" v-on:click.stop="$root.boostToot(toot)">
+              <i class="fa-solid fa-retweet"></i>&nbsp;{{ $root.shortenNumber(toot.reblogs_count) }}
+            </button>
+            <button v-bind:disabled="$root.app.user_token == null" v-bind:data-selected-h="toot.favourited" v-on:click.stop="$root.likeToot(toot)">
+              <i class="fa-solid fa-heart"></i>&nbsp;{{ $root.shortenNumber(toot.favourites_count) }}
+            </button>
           </div>
           <div v-on:click.stop="" v-show="toot._comment == true" class="td-feed--post_comment">
             <textarea v-bind:id="'textarea-' + toot.id" style="background: #e0e1e5" class="td-textarea" placeholder="Toot toot..." v-model="$root.comment"></textarea>
@@ -365,7 +390,7 @@
         <div v-if="toot.reblog">
           <td-card :toot="toot.reblog" :retoot="toot.account"></td-card>
         </div>
-        <div class="td-feed--comments" v-if="toot._comments_after && toot._comments_after.length > 0" >
+        <div class="td-feed--comments" v-if="toot._comments_after != undefined && toot._comments_after.length > 0" >
           <td-card :toot="c" comment="true" v-for="c in toot._comments_after"></td-card>
         </div>
       </div>
@@ -379,20 +404,36 @@
           <img v-bind:src="profile.avatar"/>
         </div>
         <a v-on:click.stop="$root.viewProfile(profile)" class="td-profile--name" v-html="$root.parseEmoji(profile.display_name, profile.emojis)"></a>
-        <p class="td-profile--username">@{{ profile.username }}</p>
-        <p class="td-profile--description" v-html="$root.parseEmoji(profile.note, profile.emojis)"></p>
-        <div class="td-profile--fields">
+        <p class="td-profile--username">
+          @{{ profile.acct }}
+        </p>
+        <div class="td-profile--stats">
+          <p>
+            {{ $root.shortenNumber(profile.statuses_count) }} toots&nbsp;|&nbsp;
+            {{ $root.shortenNumber(profile.followers_count) }} followers&nbsp;|&nbsp;
+            {{ $root.shortenNumber(profile.following_count) }} following
+          </p>
+        </div>
+        <ul class="td-profile--sections" v-if="profile.fields && profile.fields.length > 0">
+          <li v-bind:data-selected="profile._mode == 'info'" v-on:click="profile._mode = 'info'">Info</li>
+          <li v-bind:data-selected="profile._mode == 'links'" v-on:click="profile._mode = 'links'">Links</li>
+        </ul>
+        <p v-if="profile._mode == 'info'" class="td-profile--description" v-html="$root.parseEmoji(profile.note, profile.emojis)"></p>
+        <div v-if="profile._mode == 'links'" class="td-profile--fields">
           <div class="td-profile--fields_field" v-for="f in profile.fields">
             <h6>{{ f.name }}</h6>
             <p v-html="f.value"></p>
           </div>
         </div>
         <button 
-          v-if="$root.app.user_token != null && profile.locked == false" 
+          v-if="$root.app.user_token != null && profile.locked == false && profile.id != $root.me.id" 
           v-bind:class="{ 'blue' : !profile._following }" 
           class="td-button" 
           v-on:click="$root.followProfile(profile)">
           {{ profile._following == true ? 'Unfollow' : 'Follow' }}
+        </button>
+        <button v-if="profile.id == $root.me.id" class="td-button blue" v-on:click="$root.editProfile()">
+          Edit Profile
         </button>
       </div>
     </template>

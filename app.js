@@ -8,13 +8,14 @@ var $Router = VueRouter.createRouter({
     { path: '/:instance/toot/:toot_id', component: { template: '#toot-page' }, props: true },
     { path: '/:instance/profile/:profile_id', component: { template: '#profile-page' }, props: true },
     { path: '/:instance/search/:query', component: { template: '#search-page' }, props: true },
+    { path: '/:instance/notifications', component: { template: '#notification-page' }, props: true },
   ],
 });
 
 
 var $Components = {
   card: {
-    props: ['toot', 'comment', 'selected', 'retoot', 'instance'],
+    props: ['toot', 'comment', 'selected', 'retoot', 'instance', 'preview'],
     template: '#td-card'
   },
   profile: {
@@ -64,6 +65,10 @@ var $App = Vue.createApp({
       },
       errors: {
         not_public: false,
+      },
+      tutorial: {
+        public: false,
+        community: false
       },
       preview_media: '',
       last_page: null
@@ -347,6 +352,7 @@ var $App = Vue.createApp({
         that.announcements = res.length > 0 ? [res[0]] : [];
       });
       that.getCurrentUser();
+      that.saveData();
     },
 
     loadMore: function() {
@@ -382,6 +388,8 @@ var $App = Vue.createApp({
       var that = this;
       toot._comment = false;
       toot._view = false;
+      toot._comments_before = [];
+      toot._comments_after = [];
       if (toot.media_attachments) {
         toot.media_attachments.forEach(function(m) {
           m._view = false;
@@ -440,24 +448,35 @@ var $App = Vue.createApp({
 
     loadData: function() {
       var that = this;
+      var last = window.localStorage.getItem('tootdeck-last');
       var data = window.localStorage.getItem('tootdeck');
       if (data != undefined) {
         that.apps = JSON.parse(data);
         var apps = Object.keys(that.apps);
-        that.app = that.apps[apps[0]];
-        that.community = that.app.name;
-        that.url = apps[0];
+        if (last != undefined) {
+          that.app = that.apps[last];
+          that.community = that.app.name;
+          that.url = last;
+        } else {
+          that.app = that.apps[apps[0]];
+          that.community = that.app.name;
+          that.url = apps[0];
+        }
         that.getCurrentUser();
         if ($Router.currentRoute._value.path.indexOf('/profile/') != -1) {
           that.loadProfile($Router.currentRoute._value.params.profile_id, true);
         } else if ($Router.currentRoute._value.path.indexOf('/toot/') != -1) {
           that.loadToot($Router.currentRoute._value.params.toot_id);
         } else {
-          that.loadFeed(that.app, apps[0]);
+          that.loadFeed(that.app, that.url);
         }
       } else if ($Router.currentRoute._value.path == '/') {
         $Router.push({ path: '/' });
         that.state = 'home';
+      }
+      var tutorials = window.localStorage.getItem('tootdeck-tootorial');
+      if (tutorials != undefined) {
+        console.log(tutorials);
       }
     },
 
@@ -483,17 +502,21 @@ var $App = Vue.createApp({
       that.profile = {};
       that.profile_toots = [];
       that.getLast();
-      $Mastodon.loadToot(that.url, toot_id, that.app.user_token, function(err, res) {
+      $Mastodon.loadContext(that.url, toot_id, that.app.user_token, function(err, context) {
         if (err) return console.error(err);
-        res = that.setupToot(res);
-        that.toot = res;
-        that.loadProfile(res.account.id, false);
-        $Mastodon.loadContext(that.url, toot_id, that.app.user_token, function(err, res) {
+        $Mastodon.loadToot(that.url, toot_id, that.app.user_token, function(err, res) {
           if (err) return console.error(err);
-          that.toot._comments_before = res.ancestors;
-          that.toot._comments_after = res.descendants;
+          res = that.setupToot(res);
+          that.toot = res;
+          that.toot._comments_before = context.ancestors;
+          that.toot._comments_after = context.descendants;
+          that.loadProfile(res.account.id, false);
+          Vue.nextTick(function() {
+            var el = document.getElementById('card-' + that.toot.id);
+            document.getElementById('scroll').scrollTop = (el.offsetTop-40);
+          })
         })
-      });
+    });
     },
 
     followProfile: function(profile) {
@@ -523,6 +546,7 @@ var $App = Vue.createApp({
       $Mastodon.loadProfile(that.url, account_id, that.app.user_token, function(err, res) {
         if (err) return console.error(err);
         res._following = false;
+        res._mode = 'info';
         that.profile = res;
         if (profile == true) {
           $Mastodon.getProfileTimeline(that.url, account_id, that.app.user_token, function(err, res) {
@@ -552,8 +576,10 @@ var $App = Vue.createApp({
     },
 
     saveData: function() {
-      var data = this.apps;
-      window.localStorage.setItem('tootdeck', JSON.stringify(data));
+      var that = this;
+      window.localStorage.setItem('tootdeck', JSON.stringify(that.apps));
+      window.localStorage.setItem('tootdeck-tootorial', JSON.stringify(that.tutorial));
+      window.localStorage.setItem('tootdeck-last', that.url);
     },
 
     goToDashboard() {
@@ -600,6 +626,22 @@ var $App = Vue.createApp({
     searchTag: function(tag) {
       var that = this;
       $Router.push({ path: '/' + that.app.name + '/search/' + tag });
+    },
+
+    shortenNumber: function(num) {
+      if (num > 1000000) return Math.floor(num/1000000) + 'm';
+      if (num > 1000) return Math.floor(num/1000) + 'k';
+      return num;
+    },
+
+    viewNotifications: function() {
+      var that = this;
+      $Router.push({ path: '/' + that.app.name + '/notifications' });
+      console.log(that.notifications[that.url]);
+    },
+
+    editProfile: function() {
+      alert('I aint done that yet either soz');
     }
 
 

@@ -12,33 +12,18 @@ Currently a work in progress, these are still things I want to get done for the 
 ## Priority
 
 Toots
-- [ ] Add Attachments
-- [ ] Delete Toots
-
-Toot Chains
-- [ ] Fix border on chains
-- [ ] Autoscroll to the actual selected toot if lots of ancestors
+- [ ] Add Attachments (https://mastodon.example/api/v1/media)
+- [ ] Delete Toots (https://mastodon.example/api/v1/statuses/:id)
 
 Profile Page
-- [ ] Followers / Following / Posts Counts
-- [ ] "More toots pls" for profile feeds
-- [ ] don't show follow on urself u eejit
-- [ ] Show instance on external profiles
-- [ ] Edit Profile
-- [ ] Handle long ass profiles like /mastodon.social/profile/107109320946875676 (@vv)
-- [ ] "Media" section?
+- [ ] Edit Profile (https://mastodon.example/api/v1/accounts/update_credentials)
 
 Search Page
-- [ ] Search results + filters
+- [ ] Search results (https://mastodon.example/api/v2/search)
 
 Misc
-- [ ] Tutorial blocks
-- [ ] Notifications page
-- [ ] Github links
-- [ ] Announcement post links / mentions etc
- 
-Communities
-- [ ] set "default" landing community + save
+- [ ] Mark notifications as read
+- [ ] Announcement post parsing for links
 
 ## Future
 
@@ -48,23 +33,28 @@ Toots
 - [ ] Add Polls
 - [ ] Schedule + Scheduled Toots
 - [ ] Preview profile on avatar hover
+- [ ] Handle "no more toots" scenario, say on profile feeds
+- [ ] See boosted by / favourited by on a toot
+- [ ] Bookmarks!
+- [ ] Mute 
 
 Feeds
 - [ ] Stream feeds for new toots
 
 Profile Page
-- [ ] Pinned Toots? (/api/v1/accounts/:id/pin)
+- [ ] Pin toots (/api/v1/statuses/:id/pin) and show Pinned Toots (/api/v1/accounts/:id/pin)
+- [ ] "Media" section? Would need to just re-use existing toots and pull media from them
 
 Misc
-- [ ] Shorten fav/boost/comment to k/m if over 999
 - [ ] reorder communities on LHS
 - [ ] Notification streaming + popups
 - [ ] Aria shit
+- [ ] Tutorial blocks? What do we need to handhold through etc
+- [ ] other search filters for search results page
 
 Federation
 - [ ] Boost/comment/follow using different accounts?
 - [ ] Handle mentions from other instances
-- [ ] Fancy thumbnail stuff for adding community (use "canon" list)
 
 
 ## Finished 
@@ -82,4 +72,13 @@ Complete
 - [x] Boosts/Unboost
 - [x] Comment
 - [x] Content Warnings / Spoilers
+- [x] Nice community add screen
 - [x] Alt Text
+- [x] Handle long ass profiles / minitabs
+- [x] Followers / Following / Posts Counts
+- [x] Shorten stats to k/m if over 1000/1000000
+- [x] "More toots pls" for profile feeds
+- [x] Show instance on external profiles
+- [x] Remember last community viewed
+- [x] Autoscroll to the actual selected toot in toot chains
+- [x] Notifications page
