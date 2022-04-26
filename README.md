@@ -18,12 +18,11 @@ Toots
 Profile Page
 - [ ] Edit Profile (https://mastodon.example/api/v1/accounts/update_credentials)
 
-Search Page
-- [ ] Search results (https://mastodon.example/api/v2/search)
-
 Misc
-- [ ] Mark notifications as read
-- [ ] Announcement post parsing for links
+- [ ] Mark notifications as read / mark all as read
+- [ ] Handle "external" links that are actually links to a user/post
+- [ ] Loading msg for profile toots
+- [ ] Handle hashtag links for federation toots
 
 ## Future
 
@@ -51,6 +50,7 @@ Misc
 - [ ] Aria shit
 - [ ] Tutorial blocks? What do we need to handhold through etc
 - [ ] other search filters for search results page
+- [ ] "hide social graph" preferences, does it affect count?
 
 Federation
 - [ ] Boost/comment/follow using different accounts?
@@ -82,3 +82,6 @@ Complete
 - [x] Remember last community viewed
 - [x] Autoscroll to the actual selected toot in toot chains
 - [x] Notifications page
+- [x] Hashtag search timeline (#)
+- [x] General search (profiles + hashtags)
+- [x] Profile search (@)

@@ -123,7 +123,7 @@
           <button v-if="notifications[url]" v-bind:class="{ 'blue' : notifications[url].length > 0 }" v-if="app.user_token != null" class="td-button" v-on:click="viewNotifications()">
             <i class="fa-solid fa-bell"></i>&nbsp;{{ notifications[url].length }}
           </button>
-          <input v-if="app.user_token != null" class="td-input td-header--search" placeholder="Search..."/>
+          <input v-on:keyup.enter="runSearch()" v-if="app.user_token != null" v-model="query" class="td-input td-header--search" placeholder="Try a #Hashtag or @Username search..."/>
         </div>
       </div>
 
@@ -209,6 +209,7 @@
       </div>
     </template>
 
+    <!-- Notification Page -->
     <template id="notification-page">
       <div class="td-notifs" v-if="$root.notifications[$root.url]">
         <div class="td-notifs--item" v-for="n in $root.notifications[$root.url]">
@@ -225,8 +226,44 @@
     
     <!-- Search Page -->
     <template id="search-page">
-      <div class="td-results">
-        Search page here
+      <div class="td-feed search">
+        <span v-if="$root.state == 'search-tag'">
+          <div class="td-feed--options">
+            <div class="td-trends" style="margin-top: 0px" v-if="$root.hashtags.length > 0">
+              <h2>Similar Hashtags</h2>
+              <div v-for="t in $root.hashtags">
+                <a v-on:click.stop="$root.searchTag(t.name)">#{{ t.name }}</a><span>{{ t.history[0].uses }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="td-feed--post">
+            <td-card v-for="r in $root.results" :toot="r"></td-card>
+          </div>
+          <div class="td-feed--more" v-if="$root.results.length > 0">
+            <button class="td-button blue" v-on:click="$root.searchMoreTag()">
+              <span v-if="$root.loading.more == true">Loading more toots...</span>
+              <span v-if="$root.loading.more != true">More toots pls</span>
+            </button>
+          </div>
+        </span>
+        <span style="margin-top: 20px" v-if="$root.state == 'search-profile'">
+          <div class="td-feed--post">
+            <td-profile v-for="r in $root.results" :profile="r" compact="true"></td-profile>
+          </div>
+        </span>
+        <span style="margin-top: 20px" v-if="$root.state == 'search-both'">
+          <div class="td-feed--options">
+            <div class="td-trends" style="margin-top: 0px" v-if="$root.hashtags.length > 0">
+              <h2>Hashtags</h2>
+              <div v-for="t in $root.hashtags">
+                <a v-on:click.stop="$root.searchTag(t.name)">#{{ t.name }}</a><span>{{ t.history[0].uses }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="td-feed--post">
+            <td-profile v-for="r in $root.results" :profile="r" compact="true"></td-profile>
+          </div>
+        </span>
       </div>
     </template>
 
@@ -276,7 +313,7 @@
           </div>
           <div class="td-announcements" v-if="$root.announcements.length > 0">
             <h2>Community Notices</h2>
-            <div v-for="a in $root.announcements" v-html="a.content"></div>
+            <div v-for="a in $root.announcements" v-html="$root.parseBody(a)"></div>
           </div>
         </div>
 
@@ -414,26 +451,29 @@
             {{ $root.shortenNumber(profile.following_count) }} following
           </p>
         </div>
-        <ul class="td-profile--sections" v-if="profile.fields && profile.fields.length > 0">
+        <ul class="td-profile--sections" v-if="profile.fields && profile.fields.length > 0 && !compact">
           <li v-bind:data-selected="profile._mode == 'info'" v-on:click="profile._mode = 'info'">Info</li>
           <li v-bind:data-selected="profile._mode == 'links'" v-on:click="profile._mode = 'links'">Links</li>
         </ul>
-        <p v-if="profile._mode == 'info'" class="td-profile--description" v-html="$root.parseEmoji(profile.note, profile.emojis)"></p>
-        <div v-if="profile._mode == 'links'" class="td-profile--fields">
+        <p v-if="profile._mode == 'info' && !compact" class="td-profile--description" v-html="$root.parseEmoji(profile.note, profile.emojis)"></p>
+        <div v-if="profile._mode == 'links' && !compact" class="td-profile--fields">
           <div class="td-profile--fields_field" v-for="f in profile.fields">
             <h6>{{ f.name }}</h6>
             <p v-html="f.value"></p>
           </div>
         </div>
         <button 
-          v-if="$root.app.user_token != null && profile.locked == false && profile.id != $root.me.id" 
+          v-if="$root.app.user_token != null && profile.locked == false && profile.id != $root.me.id && !compact" 
           v-bind:class="{ 'blue' : !profile._following }" 
           class="td-button" 
           v-on:click="$root.followProfile(profile)">
           {{ profile._following == true ? 'Unfollow' : 'Follow' }}
         </button>
-        <button v-if="profile.id == $root.me.id" class="td-button blue" v-on:click="$root.editProfile()">
+        <button v-if="profile.id == $root.me.id && !compact" class="td-button blue" v-on:click="$root.editProfile()">
           Edit Profile
+        </button>
+        <button v-if="compact" class="td-button blue" v-on:click="$root.viewProfile(profile)">
+          View Profile
         </button>
       </div>
     </template>

@@ -19,7 +19,7 @@ var $Components = {
     template: '#td-card'
   },
   profile: {
-    props: ['profile', 'instance'],
+    props: ['profile', 'instance', 'compact'],
     template: '#td-profile'
   }
 }
@@ -38,6 +38,7 @@ var $App = Vue.createApp({
       apps: {},
       code: '',
       me: {},
+      query: '',
       trends: [],
       announcements: [],
       toots: [],
@@ -49,6 +50,8 @@ var $App = Vue.createApp({
       reply_from: null,
       status: '',
       notifications: {},
+      results: [],
+      hashtags: [],
       feed_type: 'home',
       loading: {
         feed: false,
@@ -225,7 +228,6 @@ var $App = Vue.createApp({
     parseBody: function(toot) {
       var that = this;
       data = that.parseEmoji(toot.content, toot.emojis);
-      var url = toot.uri.split('/users')[0];
       data = data.replaceAll('href="', 'onclick="handleLink(event, \'');
       data = data.replaceAll('" rel="', '\')" rel="');
       data = data.replaceAll('" class="mention hashtag\')"', '\')" class="mention hashtag"');
@@ -324,6 +326,7 @@ var $App = Vue.createApp({
       that.url = url;
       that.state = 'feed';
       that.loading.feed = true;
+      that.query = '';
       $Router.push({ path: '/' + that.app.name + '/feed' });
       // get timeline
       $Mastodon.getPublicTimeline(url, that.app.user_token, that.app.user_token == null ? 'public' : that.feed_type, function(err, res) {
@@ -501,6 +504,7 @@ var $App = Vue.createApp({
       that.state = 'toot';
       that.profile = {};
       that.profile_toots = [];
+      that.query = '';
       that.getLast();
       $Mastodon.loadContext(that.url, toot_id, that.app.user_token, function(err, context) {
         if (err) return console.error(err);
@@ -542,6 +546,7 @@ var $App = Vue.createApp({
       }
       that.profile = {};
       that.profile_toots = [];
+      that.query = '';
       that.getLast();
       $Mastodon.loadProfile(that.url, account_id, that.app.user_token, function(err, res) {
         if (err) return console.error(err);
@@ -623,9 +628,69 @@ var $App = Vue.createApp({
       }
     },
 
+    runSearch: function() {
+      var that = this;
+      if (that.query.indexOf('#') != -1) {
+        that.searchTag(that.query);
+      } else if (that.query.indexOf('@') != -1) {
+        that.searchProfile(that.query);
+      } else {
+        $Router.push({ path: '/' + that.app.name + '/search/' + that.query });
+        $Mastodon.runSearch(that.url, that.app.user_token, that.query, '', null, function(err, res) {
+          if (err) return console.error(err);
+          that.results = res.accounts;
+          that.hashtags = res.hashtags.filter(function(h, i) {
+            return i < 5;
+          })
+          that.state = 'search-both';
+          document.getElementById('scroll').scrollTop = 0;
+        });
+      }
+    },
+
     searchTag: function(tag) {
       var that = this;
+      tag = tag.replaceAll('#', '');
+      that.query = '#' + tag;
       $Router.push({ path: '/' + that.app.name + '/search/' + tag });
+      $Mastodon.runSearch(that.url, that.app.user_token, tag, 'hashtags', null, function(err, res) {
+        if (err) return console.error(err);
+        that.results = res;
+        that.state = 'search-tag';
+        document.getElementById('scroll').scrollTop = 0;
+      });
+      $Mastodon.runSearch(that.url, that.app.user_token, tag, 'limit', null, function(err, res) {
+        if (err) return console.error(err);
+        that.hashtags = res.hashtags;
+      });
+    },
+
+    searchMoreTag: function() {
+      var that = this;
+      that.loading.more = true;
+      $Mastodon.runSearch(that.url, that.app.user_token, that.query.replace('#', ''), 'hashtags', that.results[that.results.length-1].id, function(err, res) {
+        if (err) return console.error(err);
+        res.forEach(function(t) {
+          that.results.push(t);
+        });
+        that.loading.more = false;
+      });
+    },
+
+    searchProfile: function(profile) {
+      var that = this;
+      console.log(profile);
+      that.query = profile;
+      $Router.push({ path: '/' + that.app.name + '/search/' + profile });
+      $Mastodon.runSearch(that.url, that.app.user_token, profile, '', null, function(err, res) {
+        if (err) return console.error(err);
+        res.accounts.forEach(function(a) {
+          a._mode = 'info';
+        });
+        that.results = res.accounts;
+        that.state = 'search-profile';
+        document.getElementById('scroll').scrollTop = 0;
+      });
     },
 
     shortenNumber: function(num) {
@@ -648,6 +713,7 @@ var $App = Vue.createApp({
   },
   mounted: function() {
     var that = this;
+    window._app = this;
     that.loadData();
     that.loadInstances();
   }
@@ -661,7 +727,57 @@ $App.component('td-profile', $Components.profile);
 
 function handleLink(ev, link) {
   ev.stopPropagation();
-  console.log("Link clicked!", link);
+  var cls = ev.currentTarget.className;
+  console.log("Link clicked!", link, cls);
+
+  if (cls == 'u-url mention') {
+    var user = link.split('@')[1];
+    $Mastodon.runSearch(window._app.url, window._app.app.user_token, '@' + user, 'accounts', null, function(err, res) {
+      if (err) return console.error(err);
+      var match = res.accounts.filter(function(r) {
+        return r.url == link;
+      })[0];
+      window._app.viewProfile(match);
+    });
+  } else
+
+  if (cls == 'mention hashtag') {
+    var tag = link.split('/tags/')[1];
+    window._app.searchTag(tag);
+  } else 
+
+  if (cls == '') {
+
+    if (link.indexOf(window._app.url) != -1) {
+      console.log('internal link', link);
+      
+    } else {
+      window.open(link);
+
+    }
+
+    // if on the same domain its a link to a person or post
+
+    // otherwise external link to open externally
+
+  }
+
+  // some options
+
+  /*
+
+    1. link is a hashtag search (cls = "mention hashtag") (link = /tags/TAG)
+
+    2. link is a mention (cls = "u-url mention") (link = /@username)
+       - link is either on our instance 
+       - link is on another instance
+       either way we need to get the profile id for the given @username?
+
+    3. link is external (cls = "")
+       - open in new tab
+
+  */
+
 }
 
 function searchTag(ev, tag) {

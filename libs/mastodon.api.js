@@ -232,6 +232,24 @@ var $Mastodon = (function() {
     // get instance info
     getInstanceInfo: function(base_url, callback) {
       _request('GET', base_url + '/api/v1/instance', {}, {}, null, callback);
+    },
+
+    // run search
+    runSearch: function(base_url, user_token, query, type, toot_id, callback) {
+      if (type == 'hashtags') {
+        var params = toot_id != null ? { max_id: toot_id } : null;
+        _request('GET', base_url + '/api/v1/timelines/tag/' + query, params, {
+          Authorization: 'Bearer ' + user_token
+        }, null, callback);
+      } else {
+        _request('GET', base_url + '/api/v2/search', {
+          q: query,
+          limit: type == 'limit' ? 5 : 50
+        }, {
+          Authorization: 'Bearer ' + user_token
+        }, null, callback);
+
+      }
     }
 
   }
