@@ -36,6 +36,7 @@ var $App = Vue.createApp({
       code: '',
       me: {},
       trends: [],
+      announcements: [],
       toots: [],
       toot: null,
       profile: '',
@@ -57,7 +58,8 @@ var $App = Vue.createApp({
       errors: {
         not_public: false,
       },
-      preview_media: ''
+      preview_media: '',
+      last_page: null
     }
   },
   computed: {
@@ -85,6 +87,11 @@ var $App = Vue.createApp({
   },
   methods: {
 
+    getLast: function() {
+      var that = this;
+      that.last_page = $Router.options.history.state.back;
+    },
+
     createAccount: function() {
       var that = this;
       window.open(that.url + '/about');
@@ -102,7 +109,6 @@ var $App = Vue.createApp({
       var that = this;
       that.popup.media = true;
       that.preview_media = media;
-      console.log('preview?');
     },
 
     removeApp: function(key) {
@@ -117,10 +123,10 @@ var $App = Vue.createApp({
     },
 
     viewProfile: function(profile) {
-      console.log(profile);
       var that = this;
       that.profile = null;
       $Router.push({ path: '/' + that.app.name + '/profile/' + profile.id });
+      that.getLast();
       that.loadProfile(profile.id, true);
     },
 
@@ -128,7 +134,6 @@ var $App = Vue.createApp({
       var that = this;
       $Mastodon.sendToot(that.url, that.status, that.app.user_token, function(err, res) {
         if (err) return console.error(err);
-        console.log(res);
         that.toots.unshift(res);
         that.popup.toot = false;
         that.status = '';
@@ -136,10 +141,10 @@ var $App = Vue.createApp({
     },
 
     viewToot: function(toot) {
-      console.log(toot);
       var that = this;
       that.toot = null;
       $Router.push({ path: '/' + that.app.name + '/toot/' + toot.id });
+      that.getLast();
       that.loadToot(toot.id);
     },
 
@@ -200,10 +205,10 @@ var $App = Vue.createApp({
       data = that.parseEmoji(toot.content, toot.emojis);
       var url = toot.uri.split('/users')[0];
       // replace hashtag links with onclick ev
-      data = data.replaceAll('href="' + url + '/tags/', 'onclick="searchTag(event, \'');
+      data = data.replaceAll('href="', 'onclick="searchTag(event, \'');
       data = data.replaceAll('" class="mention hashtag"', '\')"');
       // replace @mentions with onclick ev
-      data = data.replaceAll('href="' + url + '/', 'onclick="searchProfile(event, \'');
+      data = data.replaceAll('href="', 'onclick="searchProfile(event, \'');
       data = data.replaceAll('" class="u-url mention"', '\')"');
       return data;
     },
@@ -227,7 +232,11 @@ var $App = Vue.createApp({
     },
 
     goBack: function() {
+      var that = this;
       $Router.go(-1);
+      setTimeout(function() {
+        that.last_page = $Router.options.history.state.back;
+      }, 100);
     },
     
     setComment: function(toot) {
@@ -254,11 +263,15 @@ var $App = Vue.createApp({
       toot._comment = !toggle;
       if (toot._comment == true) {
         that.reply_to = toot;
-        that.comment = '@' + toot.account.username + ' ';
+        console.log("Toot to reply to", toot);
+        if (toot.account.url.indexOf(that.url) == -1) {
+          that.comment = '@' + toot.account.username + '' + '@' + toot.account.url.split('//')[1].split('/@')[0] + ' ';
+        } else {
+          that.comment = '@' + toot.account.username + ' ';
+        }
         var did = 'textarea-' + toot.id;
         that.reply_from = that.url; // TODO
         Vue.nextTick(function() {
-          console.log("id is", did);
           document.getElementById(did).focus();
         })
       }
@@ -268,7 +281,6 @@ var $App = Vue.createApp({
       var that = this;
       $Mastodon.replyToot(that.url, that.comment, that.reply_to.id, that.apps[that.reply_from].user_token, function(err, res) {
         if (err) return console.error(err);
-        console.log(res);
         that.reply_to._comment = false;
         that.reply_to.replies_count += 1;
         that.comment = '';
@@ -290,6 +302,7 @@ var $App = Vue.createApp({
       that.state = 'feed';
       that.loading.feed = true;
       $Router.push({ path: '/' + that.app.name + '/feed' });
+      // get timeline
       $Mastodon.getPublicTimeline(url, that.app.user_token, that.app.user_token == null ? 'public' : that.feed_type, function(err, res) {
         if (err) {
           console.error(err);
@@ -297,17 +310,21 @@ var $App = Vue.createApp({
             that.errors.not_public = true;
           }
         } else {
-          res.forEach(function(toot) {
-            toot._comment = false;
-          });
+          res = that.setupToots(res);
           that.errors.not_public = false;
           that.toots = res;
         }
         that.loading.feed = false;
       });
+      // get trending hashtahs
       $Mastodon.getTrending(url, that.app.user_token, function(err, res) {
         if (err) return console.error(err);
         that.trends = res;
+      });
+      // get community announcements
+      $Mastodon.getAnnouncements(url, that.app.user_token, function(err, res) {
+        if (err) return console.error(err);
+        that.announcements = [res[0]];
       });
       that.getCurrentUser();
     },
@@ -322,13 +339,33 @@ var $App = Vue.createApp({
           }
         } else {
           that.errors.not_public = false;
-          res.forEach(function(toot) {
-            toot._comment = false;
-            that.toots.push(toot);
+          res = that.setupToots(res);
+          res.forEach(function(t) {
+            that.toots.push(t);
           })
         }
         that.loading.feed = false;
       })
+    },
+
+    setupToots: function(toots) {
+      var that = this;
+      toots.forEach(function(toot) {
+        toot = that.setupToot(toot);
+      })
+      return toots;
+    },
+
+    setupToot: function(toot) {
+      var that = this;
+      toot._comment = false;
+      toot._view = false;
+      if (toot.media_attachments) {
+        toot.media_attachments.forEach(function(m) {
+          m._view = false;
+        });
+      }
+      return toot;
     },
 
     formatDate: function(stamp) {
@@ -372,7 +409,6 @@ var $App = Vue.createApp({
         that.community = that.app.name;
         that.url = apps[0];
         that.getCurrentUser();
-        console.log($Router.currentRoute);
         if ($Router.currentRoute._value.path.indexOf('/profile/') != -1) {
           that.loadProfile($Router.currentRoute._value.params.profile_id, true);
         } else if ($Router.currentRoute._value.path.indexOf('/toot/') != -1) {
@@ -403,8 +439,10 @@ var $App = Vue.createApp({
       that.state = 'toot';
       that.profile = {};
       that.profile_toots = [];
+      that.getLast();
       $Mastodon.loadToot(that.url, toot_id, that.app.user_token, function(err, res) {
         if (err) return console.error(err);
+        res = that.setupToot(res);
         that.toot = res;
         that.loadProfile(res.account.id, false);
         $Mastodon.loadContext(that.url, toot_id, that.app.user_token, function(err, res) {
@@ -438,6 +476,7 @@ var $App = Vue.createApp({
       }
       that.profile = {};
       that.profile_toots = [];
+      that.getLast();
       $Mastodon.loadProfile(that.url, account_id, that.app.user_token, function(err, res) {
         if (err) return console.error(err);
         res._following = false;
@@ -476,7 +515,6 @@ var $App = Vue.createApp({
           if (err) {
             console.error(err);
           } else {
-            console.log('App Created for', url, res);
             var name = url.indexOf('://') != -1 ? url.split('://')[1] : url
             that.apps[url] = {
               name: name,

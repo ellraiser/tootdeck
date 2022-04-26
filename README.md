@@ -6,33 +6,45 @@ The aim of tootdeck is to make an easy to use web client for mastodon that's eas
 Currently a work in progress, these are still things I want to get done for the 1.0:
 
 Toots
-- Content warnings + spoilers
-- Polls (see/vote/post)
-- Attachments
-- Delete toot/reply
-- Alt text for images (media.description)
-- Schedule + Scheduled Toots
+- [ ] View Polls
+- [ ] Vote Polls
+- [ ] Add Polls
+- [ ] Add Attachments
+- [ ] Delete Toots
+- [ ] Schedule + Scheduled Toots
 
-Profile
-- "My" Profile pages
-- Followers / Following / Posts
-- Pinned Toots? (/api/v1/accounts/:id/pin)
-- "More toots pls" for profiles
-- don't show follow on urself u eejit
+Profile Page
+- [ ] Followers / Following / Posts Counts
+- [ ] Pinned Toots? (/api/v1/accounts/:id/pin)
+- [ ] "More toots pls" for profile feeds
+- [ ] don't show follow on urself u eejit
 
-General
-- shorten fav/boost/comment to k/m if over 999
-- Show "My" notifications somewhere
-- Cap header to content width
-- Github links
+Search Page
+- [ ] search results + filters
+- [ ] Handle links/mentions from other instances
 
-Search
-- search results + filters
+Misc
+- [ ] Shorten fav/boost/comment to k/m if over 999
+- [ ] Notifications page
+- [ ] Github links
 
 Communities
-- Notifications counter per community
-- reorder communities on LHS
-- set "default" landing community + save
+- [ ] Notifications counter per community
+- [ ] reorder communities on LHS
+- [ ] set "default" landing community + save
 
 Federation
-- Boost/comment/follow using different accounts
+- [ ] Boost/comment/follow using different accounts?
+
+Complete
+- [x] Add communities
+- [x] Login to communities
+- [x] View feeds
+- [x] View toots
+- [x] View profiles
+- [x] View toot chains
+- [x] Like/Unlike
+- [x] Boosts/Unboost
+- [x] Comment
+- [x] Content Warnings / Spoilers
+- [x] Alt Text
