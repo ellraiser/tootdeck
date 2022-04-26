@@ -1,9 +1,15 @@
 # tootdeck
-Yo!
+![tootdeck](logo.png) 
+
+https://tootdeck.app
 
 The aim of tootdeck is to make an easy to use web client for mastodon that's easy enough for new tooters to come along and just get stuck into a bunch of communities, as well as old tooters having all the functionality they'd want across multiple instances.
 
+@ me over on @ellraiser@mastodon.social or @ellraiser@mastodon.art!
+
 Currently a work in progress, these are still things I want to get done for the 1.0:
+
+## Todo
 
 Toots
 - [ ] View Polls
@@ -36,10 +42,14 @@ Communities
 Federation
 - [ ] Boost/comment/follow using different accounts?
 
+## Finished 
+
 Complete
 - [x] Add communities
 - [x] Login to communities
-- [x] View feeds
+- [x] View public feed
+- [x] View local feed
+- [x] View federated feed
 - [x] View toots
 - [x] View profiles
 - [x] View toot chains
