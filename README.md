@@ -13,16 +13,13 @@ Currently a work in progress, these are still things I want to get done for the 
 
 Toots
 - [ ] Add Attachments (https://mastodon.example/api/v1/media)
-- [ ] Delete Toots (https://mastodon.example/api/v1/statuses/:id)
+- [ ] make toots with just a single emoji HUGE
 
 Profile Page
 - [ ] Edit Profile (https://mastodon.example/api/v1/accounts/update_credentials)
 
 Misc
-- [ ] Mark notifications as read / mark all as read
-- [ ] Handle "external" links that are actually links to a user/post
-- [ ] Loading msg for profile toots
-- [ ] Handle hashtag links for federation toots
+- [ ] Refresh list when deleting a toot thats an ancestor/descendant
 
 ## Future
 
@@ -36,6 +33,7 @@ Toots
 - [ ] See boosted by / favourited by on a toot
 - [ ] Bookmarks!
 - [ ] Mute 
+- [ ] show type of toot with lil icon top right
 
 Feeds
 - [ ] Stream feeds for new toots
@@ -45,12 +43,22 @@ Profile Page
 - [ ] "Media" section? Would need to just re-use existing toots and pull media from them
 
 Misc
+- [ ] DMs
+- [ ] Profile endorsements
 - [ ] reorder communities on LHS
 - [ ] Notification streaming + popups
 - [ ] Aria shit
 - [ ] Tutorial blocks? What do we need to handhold through etc
 - [ ] other search filters for search results page
 - [ ] "hide social graph" preferences, does it affect count?
+- [ ] mod report
+- [ ] Suggested profiles / discover profiles
+- [ ] Admin tab
+- [ ] Show "redirected" on profiles (dreamymoonstudio@mastodon.online)
+- [ ] load older notifications
+- [ ] notification popup in the app?
+- [ ] preview emojis in the text area as we go?
+- [ ] async emoji load and use v-show for faster emojis
 
 Federation
 - [ ] Boost/comment/follow using different accounts?
@@ -71,7 +79,9 @@ Complete
 - [x] Like/Unlike
 - [x] Boosts/Unboost
 - [x] Comment
-- [x] Content Warnings / Spoilers
+- [x] Send toots
+- [x] Toot privacy
+- [x] View Content Warnings / Spoilers
 - [x] Nice community add screen
 - [x] Alt Text
 - [x] Handle long ass profiles / minitabs
@@ -85,3 +95,11 @@ Complete
 - [x] Hashtag search timeline (#)
 - [x] General search (profiles + hashtags)
 - [x] Profile search (@)
+- [x] Delete Toots 
+- [x] Save last feed preference
+- [x] Notification Polling
+- [x] Mark notifications as read
+- [x] Handle "external" links that are actually links to a user/post/tag (profile hashtag or @ etc)
+- [x] Loading msg for profile toots
+- [x] Custom emotes are the PRIORITY
+- [x] Handle hashtag links for federation toots

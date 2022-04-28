@@ -79,8 +79,8 @@
           <li v-for="(a, key) in authenticatedApps" v-bind:data-selected="a.name == community" v-on:click="loadFeed(a, key)">
             <div>
               {{ a.name }}
-              <span v-if="!edit.communities && notifications[key]" class="td-notifications">
-                <i class="fa-solid fa-bell"></i>&nbsp;{{ notifications[key].length }}
+              <span v-if="!edit.communities && notifications[key] && unread_notifications[key] > 0" class="td-notifications">
+                <i class="fa-solid fa-bell"></i>&nbsp;{{ unread_notifications[key] }}
               </span>
               <button class="td-button--icon red" v-if="edit.communities" v-on:click="removeApp(key)">
                 <i class="fa-solid fa-trash"></i>
@@ -111,6 +111,14 @@
             </button>
           </li>
         </ul>
+        <div class="td-sidebar--header">
+          Information
+        </div>
+        <ul class="td-sidebar--menu">
+          <li v-bind:data-selected="info == 'about'" v-on:click="loadInfo('about')">
+            about.tootdeck
+          </li>
+        </ul>
       </div>
 
       <!-- Top bar -->
@@ -120,8 +128,8 @@
             <a href="https://github.com/ellraiser/tootdeck" target="_blank"><img src="/logo.png" title="TOOTDECK"/></a>
           </div>
           <img v-if="app.user_token != null" v-on:click="viewProfile(me)" class="td-header--icon" v-bind:src="me.avatar"/>
-          <button v-if="notifications[url]" v-bind:class="{ 'blue' : notifications[url].length > 0 }" v-if="app.user_token != null" class="td-button" v-on:click="viewNotifications()">
-            <i class="fa-solid fa-bell"></i>&nbsp;{{ notifications[url].length }}
+          <button v-if="notifications[url]" v-bind:class="{ 'blue' : unread_notifications[url] > 0 }" v-if="app.user_token != null" class="td-button" v-on:click="viewNotifications()">
+            <i class="fa-solid fa-bell"></i>&nbsp;{{ unread_notifications[url] }}
           </button>
           <input v-on:keyup.enter="runSearch()" v-if="app.user_token != null" v-model="query" class="td-input td-header--search" placeholder="Try a #Hashtag or @Username search..."/>
         </div>
@@ -145,7 +153,7 @@
           <td>
             <div class="td-popup" style="padding: 0px;">
               <p style="padding: 16px 16px 0 16px">
-                Welcome to TootDeck, an <a href="" target="_blank">open source</a> web client for <a href="https://joinmastodon.org/" target="_blank">Mastodon</a> - a community owned ad-free social network.
+                Welcome to TootDeck, an <a href="https://github.com/ellraiser/tootdeck" target="_blank">open source</a> web client for <a href="https://joinmastodon.org/" target="_blank">Mastodon</a> - a community owned ad-free social network.
                 <br/><br/>
                 To get started, pick a community below (you can change this later!)
               </p>
@@ -176,7 +184,28 @@
     
     <!-- About Page -->
     <template id="about-page">
-      <div>About</div>
+      <div>
+        <p v-if="$root.info == 'about'" class="td-about">
+          TootDeck is an <a href="https://github.com/ellraiser/tootdeck" target="_blank">open source</a> web client (currently in development!) for <a href="https://joinmastodon.org/" target="_blank">Mastodon</a> - a community owned ad-free social network.
+          <br/><br/>
+          The goal of TootDeck is to make an easy-to-use client that acts as a hub for all of your favourite Mastodon communities, whether you're part of them or just passing through!
+          <br/><br/>
+          Be sure to check out the todos over on the <a href="https://github.com/ellraiser/tootdeck" target="_blank">GitHub</a> to see what's not working yet and what's coming.
+          <br/><br/>
+          TootDeck is being built by 
+          <span v-if="$root.app.user_token != null">
+            <a v-on:click="$root.searchProfile('@ellraiser@mastodon.art')">@ellraiser</a>
+          </span>
+          <span v-if="$root.app.user_token == null">
+            <a href="https://mastodon.art/web/@ellraiser" target="_blank">@ellraiser</a>
+          </span>, you can go scream at him if something dun bruk!
+          <span v-if="$root.app.user_token != null && $root.bug_sent == false">
+            <br/><br/>
+            <textarea class="td-textarea" v-model="$root.bug"></textarea>
+            <button class="td-button blue" v-on:click="$root.sendBug()">Ahhhhh</button>
+          </span>
+        </p>
+      </div>
     </template>
     
     <!-- Toot Page -->
@@ -184,6 +213,9 @@
       <div class="td-feed profile">
         <div class="td-feed--options">
           <td-profile :profile="$root.profile"></td-profile>
+        </div>
+        <div class="td-loading" v-if="$root.loading.toot == true">
+          <p>Loading toot...</p>
         </div>
         <div class="td-feed--post">
           <td-card v-if="$root.toot != null" :toot="$root.toot" :comment="false" :selected="true"></td-card>
@@ -196,6 +228,9 @@
       <div class="td-feed profile">
         <div class="td-feed--options">
           <td-profile :profile="$root.profile"></td-profile>
+        </div>
+        <div class="td-loading" v-if="$root.loading.feed == true">
+          <p>Loading toots...</p>
         </div>
         <div v-if="$root.profile_toots && $root.profile_toots.length > 0" class="td-feed--post" v-for="f in $root.profile_toots">
           <td-card :toot="f" comment="false"></td-card>
@@ -212,7 +247,7 @@
     <!-- Notification Page -->
     <template id="notification-page">
       <div class="td-notifs" v-if="$root.notifications[$root.url]">
-        <div class="td-notifs--item" v-for="n in $root.notifications[$root.url]">
+        <div class="td-notifs--item" v-bind:data-faded="n._read" v-for="n in $root.notifications[$root.url]">
           <img v-bind:src="n.account.avatar"/>
           <a v-on:click="$root.viewProfile(n.account)">@{{ n.account.acct }}</a>
           <span v-if="n.type == 'reblog'"> boosted your toot!</span>
@@ -220,6 +255,7 @@
           <span v-if="n.type == 'mention'"> mentioned you in a toot!</span>
           <span v-if="n.type == 'follow'"> followed you!</span>
           <td-card v-if="n.status" :toot="n.status" preview="true"></td-card>
+          <div class="bell" v-if="n._read == false"><i class="fa-solid fa-bell"></i></div>
         </div>
       </div>
     </template>
@@ -293,7 +329,44 @@
         <div class="td-feed--options" v-if="!$root.errors.not_public">
           <div class="td-tooting" v-bind:class="{ 'full' : $root.app.user_token != null }">
             <div v-if="$root.app.user_token != null">
-              <textarea style="margin-bottom: 10px; background: white" v-model="$root.status" class="td-textarea" placeholder="If an elephant toots in a forest and no one is around to hear it, does it make a sound?"></textarea>
+              <div class="td-tooting--text">
+                <textarea style="margin-bottom: 10px; background: white" v-model="$root.status" class="td-textarea" placeholder="If an elephant toots in a forest and no one is around to hear it, does it make a sound?"></textarea>
+                <button v-on:click="$root.select.privacy = !$root.select.privacy" class="td-button--icon" v-bind:class="{ 'blue' : $root.select.privacy, 'white' : !$root.select.privacy }">
+                  <i v-if="$root.status_privacy == 'public'" class="fa-solid fa-globe"></i>
+                  <i v-if="$root.status_privacy == 'private'" class="fa-solid fa-lock"></i>
+                  <i v-if="$root.status_privacy == 'unlisted'" class="fa-solid fa-lock-open"></i>
+                  <i v-if="$root.status_privacy == 'direct'" class="fa-solid fa-envelope"></i>
+                </button>
+                <div v-if="$root.select.privacy" class="td-dropdown">
+                  <div v-bind:data-selected="$root.status_privacy == 'public'" v-on:click="$root.status_privacy = 'public'; $root.select.privacy = false;">
+                    <h2><i class="fa-solid fa-globe"></i>&nbsp;Public</h2>
+                    <p>Visible to everyone, shown in public feeds</p>
+                  </div>
+                  <div v-bind:data-selected="$root.status_privacy == 'private'" v-on:click="$root.status_privacy = 'private'; $root.select.privacy = false;">
+                    <h2><i class="fa-solid fa-lock"></i>&nbsp;Private</h2>
+                    <p>Only visible to followers</p>
+                  </div>
+                  <div v-bind:data-selected="$root.status_privacy == 'unlisted'" v-on:click="$root.status_privacy = 'unlisted'; $root.select.privacy = false;">
+                    <h2><i class="fa-solid fa-lock-open"></i>&nbsp;Unlisted</h2>
+                    <p>Visible to everyone, not shown in public feeds</p>
+                  </div>
+                  <div v-bind:data-selected="$root.status_privacy == 'direct'" v-on:click="$root.status_privacy = 'direct'; $root.select.privacy = false;">
+                    <h2><i class="fa-solid fa-envelope"></i>&nbsp;Direct</h2>
+                    <p>Only visible to mentioned users</p>
+                  </div>
+                </div>
+                <button v-on:click="$root.select.emoji = !$root.select.emoji" class="td-button--icon" v-bind:class="{ 'blue' : $root.select.emoji, 'white' : !$root.select.emoji }">
+                  <i v-if="$root.status_privacy == 'public'" class="fa-solid fa-face-smile"></i>
+                </button>
+                <div v-if="$root.select.emoji" class="td-dropdown icon">
+                  <div v-for="(emoji, key) in $root.emojis">
+                    <h2>{{ key }}</h2>
+                    <span v-on:click="$root.insertEmoji(e, false)" v-for="e in emoji" v-bind:data-shortcode="e.shortcode" class="td-emoji">
+                      <img v-bind:src="e.url" v-bind:title="':' + e.shortcode + ':'"/>
+                    </span>
+                  </div>
+                </div>
+              </div>
               <button class="td-button blue" v-on:click="$root.sendToot()">Toot!</button>
             </div>
             <div v-if="$root.app.user_token == null">
@@ -363,7 +436,7 @@
           </h3>
           <div v-if="preview" class="td-feed--post_preview" v-html="$root.parseBody(toot)"></div>
           <div v-if="toot.sensitive == true && toot._view != true" class="td-feed--post_body">
-            {{ toot.spoiler_text == '' ? 'Spoilers' : toot.spoiler_text }}<br/>
+            Content Warning: {{ toot.spoiler_text == '' ? 'Spoilers' : toot.spoiler_text }}<br/>
             <a v-on:click.stop="toot._view = true">Show Toot</a>
           </div>
           <div class="td-feed--post_del" v-if="toot.account.id == $root.me.id">
@@ -420,7 +493,44 @@
             </button>
           </div>
           <div v-on:click.stop="" v-show="toot._comment == true" class="td-feed--post_comment">
-            <textarea v-bind:id="'textarea-' + toot.id" style="background: #e0e1e5" class="td-textarea" placeholder="Toot toot..." v-model="$root.comment"></textarea>
+            <div class="td-tooting--text">
+              <textarea style="background: e0e1e5;" v-model="$root.comment" class="td-textarea" placeholder="Toot toot..."></textarea>
+              <button v-on:click="$root.select.inline_privacy = !$root.select.inline_privacy" class="td-button--icon" v-bind:class="{ 'blue' : $root.select.inline_privacy, 'white' : !$root.select.inline_privacy }">
+                <i v-if="$root.status_privacy == 'public'" class="fa-solid fa-globe"></i>
+                <i v-if="$root.status_privacy == 'private'" class="fa-solid fa-lock"></i>
+                <i v-if="$root.status_privacy == 'unlisted'" class="fa-solid fa-lock-open"></i>
+                <i v-if="$root.status_privacy == 'direct'" class="fa-solid fa-envelope"></i>
+              </button>
+              <div v-if="$root.select.inline_privacy" class="td-dropdown">
+                <div v-bind:data-selected="$root.status_privacy == 'public'" v-on:click="$root.status_privacy = 'public'; $root.select.privacy = false;">
+                  <h2><i class="fa-solid fa-globe"></i>&nbsp;Public</h2>
+                  <p>Visible to everyone, shown in public feeds</p>
+                </div>
+                <div v-bind:data-selected="$root.status_privacy == 'private'" v-on:click="$root.status_privacy = 'private'; $root.select.privacy = false;">
+                  <h2><i class="fa-solid fa-lock"></i>&nbsp;Private</h2>
+                  <p>Only visible to followers</p>
+                </div>
+                <div v-bind:data-selected="$root.status_privacy == 'unlisted'" v-on:click="$root.status_privacy = 'unlisted'; $root.select.privacy = false;">
+                  <h2><i class="fa-solid fa-lock-open"></i>&nbsp;Unlisted</h2>
+                  <p>Visible to everyone, not shown in public feeds</p>
+                </div>
+                <div v-bind:data-selected="$root.status_privacy == 'direct'" v-on:click="$root.status_privacy = 'direct'; $root.select.privacy = false;">
+                  <h2><i class="fa-solid fa-envelope"></i>&nbsp;Direct</h2>
+                  <p>Only visible to mentioned users</p>
+                </div>
+              </div>
+              <button v-on:click="$root.select.inline_emoji = !$root.select.inline_emoji" class="td-button--icon" v-bind:class="{ 'blue' : $root.select.inline_emoji, 'white' : !$root.select.inline_emoji }">
+                <i v-if="$root.status_privacy == 'public'" class="fa-solid fa-face-smile"></i>
+              </button>
+              <div v-if="$root.select.inline_emoji" class="td-dropdown icon">
+                <div v-for="(emoji, key) in $root.emojis">
+                  <h2>{{ key }}</h2>
+                  <span v-on:click="$root.insertEmoji(e, true)" v-for="e in emoji" v-bind:data-shortcode="e.shortcode" class="td-emoji">
+                    <img v-bind:src="e.url" v-bind:title="':' + e.shortcode + ':'"/>
+                  </span>
+                </div>
+              </div>
+            </div>
             <button class="td-button blue" v-on:click="$root.replyToot()">Reply</button>
           </div>
         </div>
@@ -455,7 +565,7 @@
           <li v-bind:data-selected="profile._mode == 'info'" v-on:click="profile._mode = 'info'">Info</li>
           <li v-bind:data-selected="profile._mode == 'links'" v-on:click="profile._mode = 'links'">Links</li>
         </ul>
-        <p v-if="profile._mode == 'info' && !compact" class="td-profile--description" v-html="$root.parseEmoji(profile.note, profile.emojis)"></p>
+        <p v-if="profile._mode == 'info' && !compact" class="td-profile--description" v-html="$root.parseBody(profile)"></p>
         <div v-if="profile._mode == 'links' && !compact" class="td-profile--fields">
           <div class="td-profile--fields_field" v-for="f in profile.fields">
             <h6>{{ f.name }}</h6>

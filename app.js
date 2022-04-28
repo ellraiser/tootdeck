@@ -3,7 +3,7 @@ var $Router = VueRouter.createRouter({
   history: VueRouter.createWebHashHistory(),
   routes: [
     { path: '/', component: { template: '#home-page' }, props: true },
-    { path: '/about', component: { template: '#about-page' }, props: true },
+    { path: '/info', component: { template: '#about-page' }, props: true },
     { path: '/:instance/feed', component: { template: '#feed-page' }, props: true },
     { path: '/:instance/toot/:toot_id', component: { template: '#toot-page' }, props: true },
     { path: '/:instance/profile/:profile_id', component: { template: '#profile-page' }, props: true },
@@ -31,10 +31,14 @@ var $App = Vue.createApp({
       message: 'TOOTDECK',
       communities: [],
       community: '',
+      info: '',
       fav: '',
       app: {},
       url: '',
+      bug: '@ellraiser@mastodon.art fix yo shit pls',
+      bug_sent: false,
       instance: '',
+      emojis: [],
       apps: {},
       code: '',
       me: {},
@@ -49,13 +53,24 @@ var $App = Vue.createApp({
       reply_to: '',
       reply_from: null,
       status: '',
+      status_privacy: 'public',
       notifications: {},
+      unread_notifications: {},
       results: [],
       hashtags: [],
+      poll_ids: {},
+      start_polling: false,
       feed_type: 'home',
       loading: {
         feed: false,
         more: false,
+        toot: false
+      },
+      select: {
+        privacy: false,
+        emoji: false,
+        inline_privacy: false,
+        inline_emoji: false
       },
       popup: {
         authorize: false,
@@ -130,7 +145,23 @@ var $App = Vue.createApp({
     },
 
     deleteToot: function(toot) {
-      console.log('delete todo');
+      var that = this;
+      $Mastodon.deleteToot(that.url, toot.id, that.app.user_token, function(err, res) {
+        var toot_list = null;
+        if (that.state == 'feed') {
+          toot_list = that.toots;
+        } else if (that.state == 'profile') {
+          toot_list = that.profile_toots;
+        }
+        if (toot_list == null) return console.log('delete toot in ' + that.state);
+        var index = -1;
+        for (var t = 0; t < toot_list.length; t++) {
+          if (toot_list[t].id == toot.id) {
+            index = t; break;
+          }
+        };
+        if (index != -1) toot_list.splice(index, 1);
+      });
     },
 
     removeApp: function(key) {
@@ -154,11 +185,20 @@ var $App = Vue.createApp({
 
     sendToot: function() {
       var that = this;
-      $Mastodon.sendToot(that.url, that.status, that.app.user_token, function(err, res) {
+      $Mastodon.sendToot(that.url, that.status, that.status_privacy, that.app.user_token, function(err, res) {
         if (err) return console.error(err);
         that.toots.unshift(res);
         that.popup.toot = false;
         that.status = '';
+      });
+    },
+
+    sendBug: function() {
+      var that = this;
+      $Mastodon.sendToot(that.url, that.bug, 'public', that.app.user_token, function(err, res) {
+        if (err) return console.error(err);
+        that.bug = '@ellraiser@mastodon.art fix yo shit pls';
+        that.bug_sent = true;
       });
     },
 
@@ -212,10 +252,17 @@ var $App = Vue.createApp({
 
     parseEmoji: function(data, emojis) {
       if (emojis != undefined) {
+
+        var is_big = false;
+        var big_check = data.replace('<p>', '').replace('</p>', '');
+        if (big_check.indexOf('<') == -1 && big_check.indexOf('>') == -1 && big_check.indexOf(' ') == -1) {
+          if (big_check.charAt(0) == ':' && big_check.charAt(big_check.length-1) == ':') is_big = true;
+        }
+
         emojis.forEach(function(e) {
           data = data.replaceAll(
             ':' + e.shortcode + ':', 
-            '<span data-shortcode="' + e.shortcode + '" class="td-emoji">' + 
+            '<span data-shortcode="' + e.shortcode + '" class="td-emoji ' + (is_big ? 'big' : '') + '">' + 
               '<img src="' + e.url + '" title="' + e.shortcode + '"/>' + 
               '<img class="zoom" src="' + e.url + '" title="' + e.shortcode + '"/>' + 
             '</span>'
@@ -227,7 +274,8 @@ var $App = Vue.createApp({
 
     parseBody: function(toot) {
       var that = this;
-      data = that.parseEmoji(toot.content, toot.emojis);
+      var content = toot.note || toot.content;
+      data = that.parseEmoji(content, toot.emojis);
       data = data.replaceAll('href="', 'onclick="handleLink(event, \'');
       data = data.replaceAll('" rel="', '\')" rel="');
       data = data.replaceAll('" class="mention hashtag\')"', '\')" class="mention hashtag"');
@@ -315,7 +363,9 @@ var $App = Vue.createApp({
 
     setFeed: function() {
       var that = this;
+      that.app.last_feed = that.feed_type;
       that.loadFeed(that.app, that.url);
+      that.saveData();
     },
 
     loadFeed: function(app, url) {
@@ -327,6 +377,7 @@ var $App = Vue.createApp({
       that.state = 'feed';
       that.loading.feed = true;
       that.query = '';
+      that.info = '';
       $Router.push({ path: '/' + that.app.name + '/feed' });
       // get timeline
       $Mastodon.getPublicTimeline(url, that.app.user_token, that.app.user_token == null ? 'public' : that.feed_type, function(err, res) {
@@ -354,6 +405,21 @@ var $App = Vue.createApp({
         if (err) return console.error(err);
         that.announcements = res.length > 0 ? [res[0]] : [];
       });
+      // get emojis
+      $Mastodon.getEmojis(url, that.app.user_token, function(err, res) {
+        if (err) return console.error(err);
+        var emojis = {};
+        res.forEach(function(e) {
+          if (e.visible_in_picker == true) {
+            if (emojis[e.category] == undefined) {
+              emojis[e.category] = [];
+            }
+            emojis[e.category].push(e);
+          }
+        })
+        console.log(emojis);
+        that.emojis = emojis;
+      })
       that.getCurrentUser();
       that.saveData();
     },
@@ -456,7 +522,7 @@ var $App = Vue.createApp({
       if (data != undefined) {
         that.apps = JSON.parse(data);
         var apps = Object.keys(that.apps);
-        if (last != undefined) {
+        if (last != undefined && that.apps[last] != undefined) {
           that.app = that.apps[last];
           that.community = that.app.name;
           that.url = last;
@@ -465,6 +531,7 @@ var $App = Vue.createApp({
           that.community = that.app.name;
           that.url = apps[0];
         }
+        that.feed_type = that.app.last_feed == undefined ? 'home' : that.app.last_feed;
         that.getCurrentUser();
         if ($Router.currentRoute._value.path.indexOf('/profile/') != -1) {
           that.loadProfile($Router.currentRoute._value.params.profile_id, true);
@@ -491,12 +558,46 @@ var $App = Vue.createApp({
       });
       for (var a in that.authenticatedApps) {
         (function(i) {
-          $Mastodon.getNotifications(i, that.authenticatedApps[a].user_token, function(err, res) {
+          $Mastodon.getNotifications(i, that.authenticatedApps[i].user_token, function(err, res) {
             if (err) return console.error(err);
+            var last_notification = that.authenticatedApps[i].last_notification || 0;
+            console.log(last_notification);
+            res.forEach(function(n) {
+              n._read = Number(n.id) <= Number(last_notification);
+            });
             that.notifications[i] = res;
+            that.unread_notifications[i] = that.notifications[i].filter(function(n) { return n._read == false }).length;
+            if (that.start_polling == false) that.pollNotifications();
           });
         }(a));
       }
+    },
+
+    pollNotifications: function() {
+      var that = this;
+      that.start_polling = true;
+      for (var a in that.authenticatedApps) {
+        (function(i) {
+          var last_notification = that.authenticatedApps[i].last_notification || 0;
+          if (that.poll_ids[i] != undefined) last_notification = that.poll_ids[i];
+          if (last_notification != 0) {
+            $Mastodon.getNotificationsSince(i, that.authenticatedApps[i].user_token, last_notification, function(err, res) {
+              if (err) return console.error(err);
+              if (res.length > 0) {
+                res.forEach(function(n) {
+                  n._read = false;
+                  that.notifications[i].unshift(n);
+                });
+                that.poll_ids[i] = that.notifications[i][0].id;
+                that.unread_notifications[i] = that.notifications[i].filter(function(n) { return n._read == false }).length;
+              }
+            });
+          }
+        }(a));
+      }
+      setTimeout(function() {
+        that.pollNotifications();
+      }, 10000);
     },
 
     loadToot: function(toot_id) {
@@ -506,6 +607,7 @@ var $App = Vue.createApp({
       that.profile_toots = [];
       that.query = '';
       that.getLast();
+      that.loading.toot = true;
       $Mastodon.loadContext(that.url, toot_id, that.app.user_token, function(err, context) {
         if (err) return console.error(err);
         $Mastodon.loadToot(that.url, toot_id, that.app.user_token, function(err, res) {
@@ -515,6 +617,7 @@ var $App = Vue.createApp({
           that.toot._comments_before = context.ancestors;
           that.toot._comments_after = context.descendants;
           that.loadProfile(res.account.id, false);
+          that.loading.toot = false;
           Vue.nextTick(function() {
             var el = document.getElementById('card-' + that.toot.id);
             document.getElementById('scroll').scrollTop = (el.offsetTop-40);
@@ -538,6 +641,15 @@ var $App = Vue.createApp({
       }
     },
 
+    insertEmoji: function(emoji, comment) {
+      var that = this;
+      if (comment == true) {
+        that.comment += (' :' + emoji.shortcode + ': ');
+      } else {
+        that.status += (' :' + emoji.shortcode + ': ');
+      }
+    },
+
     loadProfile: function(account_id, profile) {
       var that = this;
       if (profile == true) {
@@ -548,6 +660,7 @@ var $App = Vue.createApp({
       that.profile_toots = [];
       that.query = '';
       that.getLast();
+      that.loading.feed = true;
       $Mastodon.loadProfile(that.url, account_id, that.app.user_token, function(err, res) {
         if (err) return console.error(err);
         res._following = false;
@@ -557,6 +670,7 @@ var $App = Vue.createApp({
           $Mastodon.getProfileTimeline(that.url, account_id, that.app.user_token, function(err, res) {
             if (err) return console.error(err);
             that.profile_toots = that.setupToots(res);
+            that.loading.feed = false;
           })
         }
         $Mastodon.getRelationship(that.url, that.profile.id, that.app.user_token, function(err, res) {
@@ -607,7 +721,9 @@ var $App = Vue.createApp({
               name: name,
               user_token: null,
               client_id: res.client_id,
-              client_secret: res.client_secret
+              client_secret: res.client_secret,
+              last_notification: null,
+              last_feed: 'public'
             }
             that.app = that.apps[url];
             that.community = name;
@@ -630,6 +746,7 @@ var $App = Vue.createApp({
 
     runSearch: function() {
       var that = this;
+      that.info = '';
       if (that.query.indexOf('#') != -1) {
         that.searchTag(that.query);
       } else if (that.query.indexOf('@') != -1) {
@@ -652,6 +769,7 @@ var $App = Vue.createApp({
       var that = this;
       tag = tag.replaceAll('#', '');
       that.query = '#' + tag;
+      that.info = '';
       $Router.push({ path: '/' + that.app.name + '/search/' + tag });
       $Mastodon.runSearch(that.url, that.app.user_token, tag, 'hashtags', null, function(err, res) {
         if (err) return console.error(err);
@@ -663,6 +781,14 @@ var $App = Vue.createApp({
         if (err) return console.error(err);
         that.hashtags = res.hashtags;
       });
+    },
+
+    loadInfo: function(info) {
+      var that = this;
+      that.info = info;
+      that.bug = '@ellraiser@mastodon.art fix yo shit pls';
+      that.bug_sent = false;
+      $Router.push({ path: '/info' });
     },
 
     searchMoreTag: function() {
@@ -681,6 +807,7 @@ var $App = Vue.createApp({
       var that = this;
       console.log(profile);
       that.query = profile;
+      that.info = '';
       $Router.push({ path: '/' + that.app.name + '/search/' + profile });
       $Mastodon.runSearch(that.url, that.app.user_token, profile, '', null, function(err, res) {
         if (err) return console.error(err);
@@ -702,11 +829,19 @@ var $App = Vue.createApp({
     viewNotifications: function() {
       var that = this;
       $Router.push({ path: '/' + that.app.name + '/notifications' });
-      console.log(that.notifications[that.url]);
+      // set last notification as the last one we had
+      that.apps[that.url].last_notification = that.notifications[that.url][0].id;
+      that.saveData();
+      setTimeout(function() {
+        that.notifications[that.url].forEach(function(n) {
+          n._read = true;
+        })
+        that.unread_notifications[that.url] = that.notifications[that.url].filter(function(n) { return n._read == false }).length;
+      }, 2500);
     },
 
     editProfile: function() {
-      alert('I aint done that yet either soz');
+      alert('I aint done that yet soz');
     }
 
 
@@ -749,7 +884,14 @@ function handleLink(ev, link) {
   if (cls == '') {
 
     if (link.indexOf(window._app.url) != -1) {
-      console.log('internal link', link);
+      var type = link.split('/');
+      if (type.length == 5) {
+        window._app.viewToot({ id: type[4] });
+      }
+      if (type.length == 4) {
+        alert('internal link to a profile maybe?' +  link);
+      }
+      console.log('internal link', link, type.length);
       
     } else {
       window.open(link);
@@ -778,15 +920,4 @@ function handleLink(ev, link) {
 
   */
 
-}
-
-function searchTag(ev, tag) {
-  var app = $Router.currentRoute._value.path.split('/')[1];
-  $Router.push({ path: '/' + app + '/search/' + tag });
-}
-
-function searchProfile(ev, profile) {
-  ev.stopPropagation();
-  var app = $Router.currentRoute._value.path.split('/')[1];
-  $Router.push({ path: '/' + app + '/search/' + profile });
 }

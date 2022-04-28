@@ -125,9 +125,10 @@ var $Mastodon = (function() {
     },
 
     // send a toot, text atm
-    sendToot: function(base_url, status, user_token, callback) {
+    sendToot: function(base_url, status, privacy, user_token, callback) {
       _request('POST', base_url + '/api/v1/statuses', {
-        status: status
+        status: status,
+        privacy: privacy
       }, {
         Authorization: 'Bearer ' + user_token
       }, null, callback);
@@ -217,7 +218,19 @@ var $Mastodon = (function() {
 
     // get notifications
     getNotifications: function(base_url, user_token, callback) {
-      _request('GET', base_url + '/api/v1/notifications', {}, {
+      _request('GET', base_url + '/api/v1/notifications', {
+        limit: 20,
+      }, {
+        Authorization: 'Bearer ' + user_token
+      }, null, callback);
+    },
+
+    // get notifications
+    getNotificationsSince: function(base_url, user_token, since_id, callback) {
+      _request('GET', base_url + '/api/v1/notifications', {
+        limit: 20,
+        since_id: since_id,
+      }, {
         Authorization: 'Bearer ' + user_token
       }, null, callback);
     },
@@ -250,6 +263,27 @@ var $Mastodon = (function() {
         }, null, callback);
 
       }
+    },
+
+    // delete too
+    deleteToot: function(base_url, toot_id, user_token, callback) {
+      _request('DELETE', base_url + '/api/v1/statuses/' + toot_id, {}, {
+        Authorization: 'Bearer ' + user_token
+      }, null, callback);
+    },
+
+    // clear notifications
+    clearNotifications: function(base_url, user_token, callback) {
+      _request('POST', base_url + '/api/v1/notifications/clear', {}, {
+        Authorization: 'Bearer ' + user_token
+      }, null, callback);
+    },
+
+    // get emojis
+    getEmojis: function(base_url, user_token, callback) {
+      _request('GET', base_url + '/api/v1/custom_emojis', {}, {
+        Authorization: 'Bearer ' + user_token
+      }, null, callback);
     }
 
   }
